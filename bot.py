@@ -6,114 +6,156 @@ from time import sleep
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 import os
 import pandas as pd
+from botcity.web import WebBot, Browser, By
+from botcity.maestro import *
 
-def fechar_privacidade(driver: Driver):
-    try:
-        privacy_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '//*[@id="onetrust-accept-btn-handler"]'))
-        )
-        privacy_button.click()
-        print("Banner de privacidade fechado.")
-    except (NoSuchElementException, TimeoutException):
-        print("Banner de privacidade não encontrado ou já fechado.")
+BotMaestroSDK.RAISE_NOT_CONNECTED = False
 
-def baixar_arquivos(driver: Driver):
-    # download dos arquivos
-    sleep(2)
-    for n in range(1, 4):  
+class LmeScraper:
+    def __init__(self, headless=False):
+        self.driver = Driver(uc=True, headless=headless)
+        self.wait = WebDriverWait(self.driver, 20)
+        self.download_path = os.path.join(os.path.dirname(__file__), 'downloaded_files')
+
+    def iniciar_navegador(self, url):
+        self.driver.get(url)
+        self.driver.maximize_window()
+
+    def fechar_privacidade(self):
         try:
-            download = driver.find_element(By.XPATH, f'/html/body/main/div/div[1]/div[1]/div[2]/div/p[{n}]/a')
-            download.click()
-            print(f"Arquivo {n} baixado com sucesso.")
-            sleep(2)  
-        except NoSuchElementException:
-            print(f"Arquivo {n} não encontrado.")
+            privacy_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, '//*[@id="onetrust-accept-btn-handler"]'))
+            )
+            privacy_button.click()
+            print("Banner de privacidade fechado.")
+        except (NoSuchElementException, TimeoutException):
+            print("Banner de privacidade não encontrado ou já fechado.")
 
-def extrair_dados():
-    data = []
-    # caminho da pasta onde os arquivos foram baixados
-    download_path = os.path.join(os.path.dirname(__file__), 'downloaded_files')
-
-    lme_file = os.path.join(download_path, 'dados_lme.xlsx')
-    if os.path.exists(lme_file):
-        lme_data = pd.read_excel(lme_file)
-        data.append(lme_data)
-
-    # Lê apenas esses arquivos 
-    expected_files = [
-        "August 2024 No Steel  Molybdenum.xlsx",
-        "July 2024 No Steel  Molybdenum.xlsx",
-        "June 2024 No Steel  Molybdenum.xlsx"
-    ]
-
-    for file in expected_files:
-        file_path = os.path.join(download_path, file)
-        if os.path.exists(file_path):
-            print(f"Lendo o arquivo: {file_path}")
+    def fazer_login(self, email, senha):
+    # Fecha o banner de privacidade antes de tentar clicar no botão de login
+        self.fechar_privacidade()
+        
+        while True:
             try:
-                df = pd.read_excel(file_path)
-                data.append(df)
-            except Exception as e:
-                print(f"Erro ao ler o arquivo {file}: {e}")
+                email_input = self.wait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="Email"]')))
+                email_input.send_keys(email)
 
-    # Combina os arquvios
-    if data:
-        combined_data = pd.concat(data, ignore_index=True)
-        output_dir = os.path.join(os.path.dirname(__file__), 'dados_lme')
-        os.makedirs(output_dir, exist_ok=True)
-        combined_data.to_excel(os.path.join(output_dir, 'dados_combinados.xlsx'), index=False)
-        print("Dados salvos com sucesso no arquivo 'dados_combinados.xlsx'.")
-    else:
-        print("Nenhum dado foi extraído.")
+                password_input = self.driver.find_element(By.XPATH, '//*[@id="Password"]')
+                password_input.send_keys(senha)
 
-def navegar(driver: Driver):
-    wait = WebDriverWait(driver, 20)
+                # Verifica se o botão de login está clicável e clica
+                login_button = self.wait.until(EC.element_to_be_clickable((By.XPATH, '/html/body/main/div/div[1]/div/form/div[3]/button')))
+                login_button.click()
+                break
+            # except ElementClickInterceptedException:
+            #     # Tenta fechar o banner novamente se o clique for interceptado
+            #     print("Tentando fechar o banner de privacidade novamente.")
+            #     self.fechar_privacidade()
+            except NoSuchElementException:
+                print("Tentando fechar o banner de privacidade novamente.")
+                self.fechar_privacidade()
+                sleep(1)
 
-    # Login
-    while True:
+    def navegar_para_relatorios(self):
         try:
-            email_input = wait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="Email"]')))
-            email_input.send_keys('falberto.dev@gmail.com')
+            market_data = self.wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="meganav-drawer"]/nav/ul/li[4]/button')))
+            market_data.click()
 
-            password_input = driver.find_element(By.XPATH, '//*[@id="Password"]')
-            password_input.send_keys('Juniorg13?')
+            reports = self.wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="meganav-drawer"]/nav/ul/li[4]/div/ul/li[3]/button/span')))
+            reports.click()
 
-            break
-        except NoSuchElementException:
-            sleep(1)
+            averages = self.wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="meganav-drawer"]/nav/ul/li[4]/div/ul/li[3]/div/div[2]/ul/li[2]/a')))
+            averages.click()
+        except TimeoutException:
+            print("O elemento não estava disponível.")
 
-    login_button = driver.find_element(By.XPATH, '/html/body/main/div/div[1]/div/form/div[3]/button')
-    login_button.click()
+    def baixar_arquivos(self):
+        sleep(2)
+        for n in range(1, 4):
+            try:
+                download = self.driver.find_element(By.XPATH, f'/html/body/main/div/div[1]/div[1]/div[2]/div/p[{n}]/a')
+                download.click()
+                print(f"Arquivo {n} baixado com sucesso.")
+                sleep(2)
+            except NoSuchElementException:
+                print(f"Arquivo {n} não encontrado.")
 
-    # Fechar o banner 
-    fechar_privacidade(driver)
+    def extrair_dados(self):
+        data = []
 
-    # Espera o botão ficar clicável
-    try:
-        market_data = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="meganav-drawer"]/nav/ul/li[4]/button')))
-        market_data.click()
+        lme_file = os.path.join(self.download_path, 'dados_lme.xlsx')
+        if os.path.exists(lme_file):
+            lme_data = pd.read_excel(lme_file)
+            data.append(lme_data)
 
-        reports = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="meganav-drawer"]/nav/ul/li[4]/div/ul/li[3]/button/span')))
-        reports.click()
+        expected_files = [
+            "August 2024 No Steel  Molybdenum.xlsx",
+            "July 2024 No Steel  Molybdenum.xlsx",
+            "June 2024 No Steel  Molybdenum.xlsx"
+        ]
 
-        averages = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="meganav-drawer"]/nav/ul/li[4]/div/ul/li[3]/div/div[2]/ul/li[2]/a')))
-        averages.click()
-    except TimeoutException:
-        print("O elemento não estava disponível.")
+        for file in expected_files:
+            file_path = os.path.join(self.download_path, file)
+            if os.path.exists(file_path):
+                print(f"Lendo o arquivo: {file_path}")
+                try:
+                    df = pd.read_excel(file_path)
+                    data.append(df)
+                except Exception as e:
+                    print(f"Erro ao ler o arquivo {file}: {e}")
 
-def main():
-    driver = Driver(uc=True, headless=False)
-    driver.get("https://www.lme.com/en/Account/Login")
-    driver.maximize_window()
+        if data:
+            combined_data = pd.concat(data, ignore_index=True)
+            output_dir = os.path.join(os.path.dirname(__file__), 'dados_lme')
+            os.makedirs(output_dir, exist_ok=True)
+            combined_data.to_excel(os.path.join(output_dir, 'dados_combinados.xlsx'), index=False)
+            print("Dados salvos com sucesso no arquivo 'dados_combinados.xlsx'.")
+        else:
+            print("Nenhum dado foi extraído.")
 
-    # Navegar e baixar arquivos
-    navegar(driver)
-    baixar_arquivos(driver)
+    def run(self, url, email, senha, execution = None):
 
-    # Extrair dados dos arquivos 
-    extrair_dados()
+        maestro = BotMaestroSDK.from_sys_args()
+        execution = maestro.get_execution()
+        print(f"Task ID is: {execution.task_id}")
+        print(f"Task Parameters are: {execution.parameters}")
+        
+        maestro.alert(
+            task_id=execution.task_id,
+            title="Info Alert",
+            message="Sucesso",
+            alert_type=AlertType.INFO
+        )
 
-    driver.quit()
+        try:
+            
+            self.iniciar_navegador(url)
+            self.fazer_login(email, senha)
+            self.fechar_privacidade()
+            self.navegar_para_relatorios()
+            self.baixar_arquivos()
+            self.extrair_dados()
+
+                      
+            finshed_status = AutomationTaskFinishStatus.SUCCESS
+            finish_message = "Tarefa finalizada com sucesso"
+
+        except Exception as ex:
+            print("Error: ", ex)
+            self.save_screenshot("erro.png")
+
+            finshed_status = AutomationTaskFinishStatus.FAILED
+            finish_message = "Tarefa finalizada com erro"
+
+        finally:
+            sleep(3)
+            self.driver.quit()
+
+            maestro.finish_task(
+                task_id=execution.task_id,
+                status=finshed_status,
+                message=finish_message)
 
 if __name__ == '__main__':
-    main()
+    scraper = LmeScraper(headless=False)
+    scraper.run("https://www.lme.com/en/Account/Login", "falberto.dev@gmail.com", "Juniorg13?")
