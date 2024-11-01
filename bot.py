@@ -6,7 +6,7 @@ from time import sleep
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 import os
 import pandas as pd
-from botcity.web import WebBot, Browser, By
+# from botcity.web import WebBot, Browser, By
 from botcity.maestro import *
 
 BotMaestroSDK.RAISE_NOT_CONNECTED = False
@@ -120,14 +120,15 @@ class LmeScraper:
         print(f"Task ID is: {execution.task_id}")
         print(f"Task Parameters are: {execution.parameters}")
         
-        maestro.alert(
-            task_id=execution.task_id,
-            title="Info Alert",
-            message="Sucesso",
-            alert_type=AlertType.INFO
-        )
+        
 
         try:
+            maestro.alert(
+            task_id=execution.task_id,
+            title="Iniciando Automação",
+            message="O processo de navegação e extração começou",
+            alert_type=AlertType.INFO
+        )
             
             self.iniciar_navegador(url)
             self.fazer_login(email, senha)
@@ -153,8 +154,9 @@ class LmeScraper:
 
             maestro.finish_task(
                 task_id=execution.task_id,
-                status=finshed_status,
-                message=finish_message)
+                status=AutomationTaskFinishStatus.SUCCESS,
+                message="Task Finalizada com sucesso."
+            )
 
 if __name__ == '__main__':
     scraper = LmeScraper(headless=False)
