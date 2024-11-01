@@ -90,8 +90,8 @@ class LmeScraper:
 
         expected_files = [
             "August 2024 No Steel  Molybdenum.xlsx",
-            "July 2024 No Steel  Molybdenum.xlsx",
-            "June 2024 No Steel  Molybdenum.xlsx"
+            "October 2024 No Steel  Molybdenum.xlsx",
+            "September 2024 No Steel  Molybdenum.xlsx"
         ]
 
         for file in expected_files:
